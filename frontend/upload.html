@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Upload</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+      margin: 0;
+    }
+
+    nav {
+      background: #1e3a5f;
+      color: white;
+      padding: 15px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    nav h1 { margin: 0; font-size: 20px; }
+    nav a  { color: #90caf9; text-decoration: none; }
+
+    .container {
+      max-width: 600px;
+      margin: 60px auto;
+      padding: 0 20px;
+    }
+
+    h2 {
+      color: #1e3a5f;
+      margin-bottom: 6px;
+    }
+
+    p.subtitle {
+      color: #666;
+      margin-bottom: 30px;
+    }
+
+    /* Upload box */
+    .upload-box {
+      background: white;
+      border: 2px dashed #90caf9;
+      border-radius: 8px;
+      padding: 40px;
+      text-align: center;
+    }
+
+    .upload-box p { color: #555; margin-bottom: 16px; }
+
+    /* File input styled as a button */
+    input[type="file"] {
+      display: block;
+      margin: 0 auto 16px;
+      font-size: 14px;
+    }
+
+    /* Analyze button */
+    button {
+      background: #1565c0;
+      color: white;
+      border: none;
+      padding: 12px 32px;
+      border-radius: 6px;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    button:hover    { background: #0d47a1; }
+    button:disabled { background: #aaa; cursor: not-allowed; }
+
+    /* Status messages */
+    #status {
+      margin-top: 20px;
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 14px;
+      display: none;
+    }
+
+    .status-loading { background: #e3f2fd; color: #1565c0; }
+    .status-error   { background: #ffebee; color: #c62828; }
+
+    /* Progress steps list */
+    #steps {
+      margin-top: 16px;
+      text-align: left;
+      font-size: 14px;
+      color: #444;
+      line-height: 2;
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <h1>Analyze Network Traffic</h1>
+    <a href="index.html">← Home</a>
+  </nav>
+
+  <div class="container">
+
+    <h2>Upload PCAP File</h2>
+    <p class="subtitle">Select a .pcap or .pcapng file to begin analysis.</p>
+
+    <div class="upload-box">
+
+      <p>Choose a network capture file from your computer:</p>
+
+      <!-- File picker -->
+      <input type="file" id="fileInput" accept=".pcap,.pcapng,.cap" />
+
+      <!-- Analyze button — starts disabled -->
+      <button id="analyzeBtn" disabled onclick="runAnalysis()">
+        Analyze Traffic
+      </button>
+
+    </div>
+
+    <!-- Status message (shown while loading or on error) -->
+    <div id="status"></div>
+
+    <!-- Step-by-step progress text -->
+    <div id="steps"></div>
+
+  </div>
+
+  <script>
+    // When user picks a file, enable the button
+    document.getElementById("fileInput").addEventListener("change", function() {
+      const btn = document.getElementById("analyzeBtn");
+      btn.disabled = (this.files.length === 0);
+    });
+
+    async function runAnalysis() {
+      const fileInput = document.getElementById("fileInput");
+      const file = fileInput.files[0];
+
+      if (!file) {
+        showStatus("Please select a file first.", "error");
+        return;
+      }
+
+      // Disable button while running
+      document.getElementById("analyzeBtn").disabled = true;
+
+      // Show loading message
+      showStatus("Uploading and analyzing... please wait.", "loading");
+
+      // Show the steps the backend is going through
+      showSteps([
+        "1. Uploading PCAP file...",
+        "2. Parsing packets with Scapy...",
+        "3. Cleaning the data...",
+        "4. Running EDA statistics...",
+        "5. Running Isolation Forest anomaly detection...",
+        "6. Generating charts...",
+        "7. Writing interpretation...",
+      ]);
+
+      // Build the form data to send the file
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        // Send the file to the Flask backend
+        const response = await fetch("http://localhost:5000/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          showStatus("Error: " + (data.error || "Unknown error"), "error");
+          document.getElementById("analyzeBtn").disabled = false;
+          return;
+        }
+
+        // Save the result in sessionStorage so results.html can use it
+        sessionStorage.setItem("result", JSON.stringify(data));
+
+        // Go to the results page
+        window.location.href = "results.html";
+
+      } catch (err) {
+        showStatus("Could not connect to the backend. Is it running?", "error");
+        document.getElementById("analyzeBtn").disabled = false;
+      }
+    }
+
+    function showStatus(msg, type) {
+      const el = document.getElementById("status");
+      el.textContent = msg;
+      el.className = "status-" + type;
+      el.style.display = "block";
+    }
+
+    function showSteps(steps) {
+      const el = document.getElementById("steps");
+      el.innerHTML = steps.map(s => "⏳ " + s).join("<br>");
+    }
+  </script>
+
+</body>
+</html>

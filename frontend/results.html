@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Results</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+      margin: 0;
+    }
+
+    nav {
+      background: #1e3a5f;
+      color: white;
+      padding: 15px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    nav h1 { margin: 0; font-size: 20px; }
+    nav a  { color: #90caf9; text-decoration: none; margin-left: 20px; }
+
+    .container {
+      max-width: 1100px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+
+    /* Section title style */
+    h2 {
+      color: #1e3a5f;
+      border-left: 4px solid #1565c0;
+      padding-left: 12px;
+      margin: 30px 0 16px;
+    }
+
+    /* ── Stat cards ── */
+    .stat-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 10px;
+    }
+
+    .stat-card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px 24px;
+      min-width: 160px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.07);
+    }
+
+    .stat-card .label { font-size: 12px; color: #888; margin-bottom: 6px; }
+    .stat-card .value { font-size: 22px; font-weight: bold; color: #1565c0; }
+
+    /* ── Anomaly card changes color by severity ── */
+    .severity-NORMAL { border-top: 4px solid #43a047; }
+    .severity-MEDIUM { border-top: 4px solid #fb8c00; }
+    .severity-HIGH   { border-top: 4px solid #e53935; }
+
+    /* ── Chart grid ── */
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(460px, 1fr));
+      gap: 20px;
+    }
+
+    .chart-card {
+      background: white;
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.07);
+    }
+
+    .chart-card h3 {
+      margin: 0 0 12px;
+      font-size: 14px;
+      color: #555;
+    }
+
+    .chart-card img {
+      width: 100%;
+      border-radius: 4px;
+    }
+
+    /* ── Interpretation cards ── */
+    .interp-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px;
+    }
+
+    .interp-card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.07);
+    }
+
+    .interp-card h3 { margin: 0 0 10px; font-size: 14px; color: #1565c0; }
+    .interp-card p  { margin: 0; font-size: 14px; color: #444; line-height: 1.7; }
+
+    /* ── Recommendation box ── */
+    .recommendation {
+      background: #e8f5e9;
+      border-left: 4px solid #43a047;
+      padding: 14px 18px;
+      border-radius: 6px;
+      font-size: 14px;
+      color: #2e7d32;
+      margin-top: 20px;
+    }
+
+    /* ── Protocol table ── */
+    table {
+      background: white;
+      border-collapse: collapse;
+      width: 100%;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.07);
+    }
+
+    th {
+      background: #1e3a5f;
+      color: white;
+      padding: 10px 16px;
+      text-align: left;
+      font-size: 13px;
+    }
+
+    td {
+      padding: 10px 16px;
+      font-size: 13px;
+      border-bottom: 1px solid #f0f0f0;
+      color: #333;
+    }
+
+    tr:hover td { background: #f5f5f5; }
+
+    /* Error box */
+    .error {
+      background: #ffebee;
+      color: #c62828;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <h1>Results</h1>
+    <div>
+      <a href="upload.html">⬆ New Analysis</a>
+      <a href="index.html">Home</a>
+    </div>
+  </nav>
+
+  <div class="container" id="content">
+    <p style="color:#888; text-align:center; margin-top:60px;">Loading results...</p>
+  </div>
+
+  <script>
+    const API = "http://localhost:5000";
+
+    // Load the result saved by upload.html
+    const raw = sessionStorage.getItem("result");
+
+    if (!raw) {
+      document.getElementById("content").innerHTML =
+        '<div class="error">No results found. <a href="upload.html">Upload a file first.</a></div>';
+    } else {
+      const data = JSON.parse(raw);
+      buildPage(data);
+    }
+
+    function buildPage(data) {
+      const content = document.getElementById("content");
+      const s = data.statistics;
+      const a = data.anomalies;
+      const i = data.interpretation;
+
+      let html = "";
+
+      // ── File info ──────────────────────────────────────
+      html += `<p style="color:#888; font-size:13px; margin-bottom:4px;">File: <strong>${data.filename}</strong></p>`;
+
+      // ── Key Statistics ────────────────────────────────
+      html += `<h2>📊 Key Statistics</h2>`;
+      html += `<div class="stat-grid">`;
+      html += statCard("Total Packets",    s.total_packets.toLocaleString());
+      html += statCard("Total Bytes",      formatBytes(s.total_bytes));
+      html += statCard("Duration",         s.capture_duration_seconds + " sec");
+      html += statCard("Avg Packet Size",  s.avg_packet_size + " B");
+      html += statCard("Top Protocol",     s.most_common_protocol);
+      html += statCard("Top Source IP",    s.most_active_src_ip);
+      html += `</div>`;
+
+      // ── Anomaly Summary ───────────────────────────────
+      html += `<h2>🤖 Anomaly Detection</h2>`;
+      html += `<div class="stat-grid">`;
+      html += statCard("Total Packets",   a.total_packets.toLocaleString(), "severity-" + i.severity);
+      html += statCard("Anomalies Found", a.anomaly_count.toLocaleString(), "severity-" + i.severity);
+      html += statCard("Anomaly Rate",    a.anomaly_percentage + "%",       "severity-" + i.severity);
+      html += statCard("Normal Packets",  a.normal_count.toLocaleString());
+      html += statCard("Severity",        i.severity, "severity-" + i.severity);
+      html += `</div>`;
+
+      // ── Protocol Table ────────────────────────────────
+      html += `<h2>🌐 Protocol Breakdown</h2>`;
+      html += `<table>
+        <tr><th>Protocol</th><th>Packets</th><th>Percentage</th></tr>`;
+      const total = s.total_packets || 1;
+      for (const [proto, count] of Object.entries(s.protocol_distribution)) {
+        const pct = ((count / total) * 100).toFixed(1);
+        html += `<tr><td>${proto}</td><td>${count.toLocaleString()}</td><td>${pct}%</td></tr>`;
+      }
+      html += `</table>`;
+
+      // ── Charts ────────────────────────────────────────
+      html += `<h2>📈 Visualizations</h2>`;
+      html += `<div class="chart-grid">`;
+
+      const chartTitles = {
+        protocol_distribution: "Protocol Distribution",
+        top_source_ips:        "Top Source IP Addresses",
+        packet_size:           "Packet Size Distribution",
+        traffic_timeline:      "Traffic Timeline",
+        top_ports:             "Top Destination Ports",
+        anomaly_scatter:       "Anomaly Detection (Size vs TTL)",
+      };
+
+      for (const [key, url] of Object.entries(data.charts)) {
+        const title = chartTitles[key] || key;
+        html += `
+          <div class="chart-card">
+            <h3>${title}</h3>
+            <img src="${API}${url}" alt="${title}" />
+          </div>`;
+      }
+      html += `</div>`;
+
+      // ── AI Interpretation ─────────────────────────────
+      html += `<h2>💬 Interpretation</h2>`;
+      html += `<div class="interp-grid">`;
+      html += interpCard("Summary",             i.summary);
+      html += interpCard("Protocol Breakdown",  i.protocol_breakdown);
+      html += interpCard("Packet Size Analysis",i.packet_size_analysis);
+      html += interpCard("Anomaly Analysis",    i.anomaly_analysis);
+      html += `</div>`;
+
+      // Recommendation
+      html += `<div class="recommendation">💡 <strong>Recommendation:</strong> ${i.recommendation}</div>`;
+      html += `<br><br>`;
+
+      content.innerHTML = html;
+    }
+
+    // ── Helper functions ──────────────────────────────────
+
+    function statCard(label, value, extraClass = "") {
+      return `
+        <div class="stat-card ${extraClass}">
+          <div class="label">${label}</div>
+          <div class="value">${value}</div>
+        </div>`;
+    }
+
+    function interpCard(title, text) {
+      return `
+        <div class="interp-card">
+          <h3>${title}</h3>
+          <p>${text || "—"}</p>
+        </div>`;
+    }
+
+    function formatBytes(bytes) {
+      if (!bytes) return "0 B";
+      if (bytes < 1024)       return bytes + " B";
+      if (bytes < 1024*1024)  return (bytes/1024).toFixed(1) + " KB";
+      return (bytes/1024/1024).toFixed(2) + " MB";
+    }
+  </script>
+
+</body>
+</html>
